@@ -1,0 +1,32 @@
+# Build Fields (Google Pixel 9 - Android 17 Canary ZP11.261016.008)
+MANUFACTURER=Google
+MODEL=Pixel 9
+FINGERPRINT=google/tokay_beta/tokay:CANARY/ZP11.261016.008/16754936:user/release-keys
+BRAND=google
+PRODUCT=tokay_beta
+DEVICE=tokay
+RELEASE=CANARY
+ID=ZP11.261016.008
+INCREMENTAL=16754936
+TYPE=user
+TAGS=release-keys
+SECURITY_PATCH=2026-11-05
+DEVICE_INITIAL_SDK_INT=34
+
+# System Properties
+ro.build.fingerprint=google/tokay_beta/tokay:CANARY/ZP11.261016.008/16754936:user/release-keys
+ro.build.id=ZP11.261016.008
+ro.product.device=tokay
+ro.product.name=tokay_beta
+ro.build.version.security_patch=2026-11-05
+ro.board.first_api_level=32
+ro.product.first_api_level=34
+
+# Advanced Settings (keep spoofProvider=0 when Tricky Store OSS has a valid keybox)
+spoofBuild=1
+spoofProps=1
+spoofProvider=0
+spoofSignature=0
+spoofVendingFinger=0
+spoofVendingSdk=0
+verboseLogs=0

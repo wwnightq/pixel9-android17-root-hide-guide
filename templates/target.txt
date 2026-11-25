@@ -1,0 +1,7 @@
+com.android.vending!
+com.google.android.gms!
+com.google.android.gsf!
+com.google.android.apps.walletnfcrel!
+ru.nspk.mirpay!
+# Add your own banking or payment app package names below with a trailing "!":
+# com.example.bank!

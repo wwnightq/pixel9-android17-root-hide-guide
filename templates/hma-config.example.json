@@ -1,0 +1,99 @@
+{
+  "configVersion": 95,
+  "detailLog": false,
+  "errorOnlyLog": false,
+  "maxLogSize": 512,
+  "forceMountData": true,
+  "disableActivityLaunchProtection": false,
+  "altAppDataIsolation": false,
+  "altVoldAppDataIsolation": false,
+  "skipSystemAppDataIsolation": true,
+  "defaultConfig": null,
+  "ignoredPackagesForPresets": [],
+  "templates": {
+    "root_hide": {
+      "isWhitelist": false,
+      "appList": [
+        "com.resukisu.resukisu",
+        "com.topjohnwu.magisk",
+        "org.frknkrc44.hma_oss",
+        "me.itejo443.bindhosts",
+        "org.adaway",
+        "com.termux",
+        "moe.shizuku.privileged.api"
+      ]
+    }
+  },
+  "settingsTemplates": {},
+  "disabledHooks": [],
+  "scope": {
+    "ru.nspk.mirpay": {
+      "useWhitelist": false,
+      "excludeSystemApps": true,
+      "hideInstallationSource": false,
+      "hideSystemInstallationSource": false,
+      "excludeTargetInstallationSource": false,
+      "invertActivityLaunchProtection": false,
+      "excludeVoldIsolation": false,
+      "restrictedZygotePermissions": [],
+      "applyTemplates": ["root_hide"],
+      "applyPresets": [],
+      "applySettingTemplates": [],
+      "applySettingsPresets": [],
+      "extraSettings": {"settingsList": []},
+      "extraAppList": [],
+      "extraOppositeAppList": []
+    },
+    "com.android.vending": {
+      "useWhitelist": false,
+      "excludeSystemApps": true,
+      "hideInstallationSource": false,
+      "hideSystemInstallationSource": false,
+      "excludeTargetInstallationSource": false,
+      "invertActivityLaunchProtection": false,
+      "excludeVoldIsolation": false,
+      "restrictedZygotePermissions": [],
+      "applyTemplates": ["root_hide"],
+      "applyPresets": [],
+      "applySettingTemplates": [],
+      "applySettingsPresets": [],
+      "extraSettings": {"settingsList": []},
+      "extraAppList": [],
+      "extraOppositeAppList": []
+    },
+    "com.google.android.gms": {
+      "useWhitelist": false,
+      "excludeSystemApps": true,
+      "hideInstallationSource": false,
+      "hideSystemInstallationSource": false,
+      "excludeTargetInstallationSource": false,
+      "invertActivityLaunchProtection": false,
+      "excludeVoldIsolation": false,
+      "restrictedZygotePermissions": [],
+      "applyTemplates": ["root_hide"],
+      "applyPresets": [],
+      "applySettingTemplates": [],
+      "applySettingsPresets": [],
+      "extraSettings": {"settingsList": []},
+      "extraAppList": [],
+      "extraOppositeAppList": []
+    },
+    "com.google.android.apps.walletnfcrel": {
+      "useWhitelist": false,
+      "excludeSystemApps": true,
+      "hideInstallationSource": false,
+      "hideSystemInstallationSource": false,
+      "excludeTargetInstallationSource": false,
+      "invertActivityLaunchProtection": false,
+      "excludeVoldIsolation": false,
+      "restrictedZygotePermissions": [],
+      "applyTemplates": ["root_hide"],
+      "applyPresets": [],
+      "applySettingTemplates": [],
+      "applySettingsPresets": [],
+      "extraSettings": {"settingsList": []},
+      "extraAppList": [],
+      "extraOppositeAppList": []
+    }
+  }
+}
