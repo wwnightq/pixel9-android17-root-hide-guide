@@ -1,6 +1,6 @@
 # Скрытие root, Play Integrity и работа Vector (Xposed) на Pixel 9 (Android 17 Canary)
 
-[English version](README.md)
+[Главная страница (EN + RU)](README.md)
 
 В этом руководстве собрана проверенная конфигурация для скрытия root, прохождения аттестации и стабильной работы Xposed-фреймворка Vector на Google Pixel 9 (`tokay`) с Android 17 Canary (`ZP11.261016.008`, API 37, патч безопасности `2026-11-05`) и ReSukiSU `v4.2.0-rc3`.
 
