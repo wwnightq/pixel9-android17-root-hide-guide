@@ -3,5 +3,6 @@ com.google.android.gms!
 com.google.android.gsf!
 com.google.android.apps.walletnfcrel!
 ru.nspk.mirpay!
-# Add your own banking or payment app package names below with a trailing "!":
+# Add your own banking, payment, or messaging apps below with a trailing "!":
+# com.whatsapp!
 # com.example.bank!

@@ -1,165 +1,169 @@
-# Скрытие root, Play Integrity и работа Vector (Xposed) на Pixel 9 (Android 17 Canary)
+# Pixel 9 на Android 17 Canary: скрытие root, Strong Integrity и Vector
 
 [Главная страница (EN + RU)](README.md)
 
-В этом руководстве собрана проверенная конфигурация для скрытия root, прохождения аттестации и стабильной работы Xposed-фреймворка Vector на Google Pixel 9 (`tokay`) с Android 17 Canary (`ZP11.261016.008`, API 37, патч безопасности `2026-11-05`) и ReSukiSU `v4.2.0-rc3`.
+Рабочие заметки, шаблоны конфигов и два патчера под Google Pixel 9 (`tokay`) на Android 17 Canary (`ZP11.261016.008`, API 37, патч `2026-11-05`) с ReSukiSU `v4.2.0-rc3`. В этой связке Google Play отдаёт `BASIC`, `DEVICE` и `STRONG`, Mir Pay и банки открываются без жалоб на root, а Vector (Xposed) работает без падений `system_server`.
 
-Задача состоит из двух частей: сделать так, чтобы банковские приложения и Mir Pay запускались без жалоб на root, и запустить Vector на Android 17 Canary без циклического падения `system_server`.
+В репозитории лежат только скрипты и шаблоны конфигов. Сами модули берите с официальных страниц авторов на GitHub, а свой `/data/adb/tricky_store/keybox.xml` никуда не выкладывайте.
 
-## Важное предупреждение и безопасность
+## На чём проверялось
 
-Разблокировка загрузчика, модификация загрузочных образов, установка root-модулей и использование Canary-сборок ОС всегда несут риск потери данных или циклической перезагрузки. Перед началом работы обязательно сделайте резервную копию важных данных.
+| Компонент | Версия |
+| :--- | :--- |
+| Устройство | Google Pixel 9 (`tokay`) |
+| Прошивка | Android 17 Canary (`ZP11.261016.008`, SDK 37, патч `2026-11-05`) |
+| Root | ReSukiSU `v4.2.0-rc3` (`ksud 35171`) |
+| Zygisk | Zygisk Next `1.5.3` (`880`, `linker: builtin`, DenyList выключен) |
+| Скрытие | Nohello `v0.0.7` (`53`), HMA-OSS Zygisk `oss-177` |
+| Аттестация | Tricky Store OSS `v3.1.0` (`172`, с патчем), Play Integrity Fork `v19` |
+| Xposed (по желанию) | Vector `v2.2 canary-3119` (с патчем) |
 
-Никогда не выкладывайте в сеть свой файл `/data/adb/tricky_store/keybox.xml`. В этом репозитории нет чужих ключей, скомпилированных бинарных файлов сторонних модулей и личных данных. Проверки антифрода в банках постоянно обновляются, а успешный запуск приложения еще не гарантирует привязку конкретной карты и прохождение NFC-оплаты на терминале, поэтому проверяйте оплату вручную на своем устройстве.
+## Что сломалось на Android 17 Canary
 
-## Проверенное окружение
+Модули, которые нормально жили на Android 15 и 16, на SDK 37 отвалились:
 
-- Устройство: Google Pixel 9 (`tokay`)
-- Система: Android 17 Canary (`ZP11.261016.008`, `SDK 37`)
-- Root-менеджер: ReSukiSU `v4.2.0-rc3` (`ksud 35171`)
-- Реализация Zygisk: Zygisk Next `1.5.3` (`880`, `linker: builtin`, `enforce_denylist: disabled`)
-- Скрытие root и списка приложений: Nohello `v0.0.7` (`53`) и HMA-OSS Zygisk `oss-177`
-- Keystore и Play Integrity: Tricky Store OSS `v3.1.0` (`172`) и Play Integrity Fork `v19`
-- Xposed-фреймворк (по желанию): Vector `v2.2 canary-3119` с патчем для `libcore_bundle.so` из `scripts/patch_vector_a17.py`
-
-## Какие модули не подходят для Android 17 (SDK 37)
-
-Привычные связки с Android 15 и 16 на Android 17 Canary вызывают сбои или не проходят проверки.
-
-| Модуль | Проблема на Android 17 Canary | Что ставить взамен |
+| Модуль | Что пошло не так | Что поставил взамен |
 | :--- | :--- | :--- |
-| NeoZygisk `v2.4` | Ошибки `solist` и нестабильность `system_server` | [Zygisk Next](https://github.com/Dr-TSNG/ZygiskNext) `1.5.3+` |
-| Закрытый Tricky Store `v1.4.1` | На SDK 37 некорректно перехватывает EC-аттестацию ключей | [Tricky Store OSS](https://github.com/beakthoven/TrickyStoreOSS) `v3.1.0+` |
-| Integrity Box | Лишние фоновые скрипты в `/data/adb/service.d` и `Box-Brain` | [Play Integrity Fork](https://github.com/osm0sis/PlayIntegrityFork) `v19+` |
-| Pay Security Bypass `v1.0.4` | Крашится внутри Mir Pay с `AssertionError` (`AndroidVMTools` поддерживает максимум SDK 36) | Удалить или отключить; нативное скрытие работает без него |
-| Vector `v2.2 (3080)` | Вызывает цикл перезапусков `system_server` на Android 17 Canary | [Vector](https://github.com/JingMatrix/Vector) `canary-3119+` с патчем под `libcore_bundle.so` |
+| NeoZygisk `v2.4` | Ошибки `solist` и нестабильный `system_server` | [Zygisk Next](https://github.com/Dr-TSNG/ZygiskNext) `1.5.3+` |
+| Закрытый Tricky Store `v1.4.1` | Ломает EC-аттестацию ключей на SDK 37 | [Tricky Store OSS](https://github.com/beakthoven/TrickyStoreOSS) `v3.1.0+` (с патчем) |
+| Integrity Box | Тащит лишние скрипты в `/data/adb/service.d` и `Box-Brain` | [Play Integrity Fork](https://github.com/osm0sis/PlayIntegrityFork) `v19+` |
+| Pay Security Bypass `v1.0.4` | Крашит Mir Pay с `AssertionError` (`AndroidVMTools` знает максимум SDK 36) | Удалил, Mir Pay работает без него |
+| Vector `v2.2 (3080)` | Загоняет `system_server` в цикл перезагрузок | [Vector](https://github.com/JingMatrix/Vector) `canary-3119+` (с патчем) |
 
-## Шаг 1. Сделайте резервную копию
+## Симлинк `libbinder.so` в Android 17 (почему падают Tricky Store OSS и Vector)
 
-Перед удалением или заменой модулей сохраните текущие конфигурации на устройстве через ADB:
-
-```sh
-adb shell "su -c 'mkdir -p /data/adb/backup && cp -a /data/adb/modules /data/adb/tricky_store /data/adb/lspd /data/adb/backup/'"
-```
-
-Запомните способ аварийного отката в KernelSU / ReSukiSU: если во время загрузки удерживать клавишу уменьшения громкости, система загрузится в безопасном режиме с отключенными модулями. Если ADB уже доступен, отдельный модуль можно отключить командой `/data/adb/ksud module disable <id_модуля>`.
-
-## Шаг 2. Настройте функции ядра в ReSukiSU
-
-Модуль Nohello сам размонтирует следы модулей внутри процессов, поэтому встроенное ядерное размонтирование `kernel_umount` нужно отключить во избежание конфликтов, а `selinux_hide` оставить включенным:
-
-```sh
-adb shell "su -c '/data/adb/ksud feature set kernel_umount 0 && /data/adb/ksud feature set selinux_hide 1 && /data/adb/ksud feature save'"
-```
-
-Проверьте результат командой `/data/adb/ksud feature list`. Включенными остаются `su_compat`, `selinux_hide`, `sulog` и `adb_root`, а напротив `kernel_umount` должно быть `[DISABLED]`.
-
-## Шаг 3. Установите базовые модули скрытия и аттестации
-
-Скачайте официальные ZIP-архивы со страниц разработчиков на GitHub и установите их через ReSukiSU. Перезагружать телефон после каждого модуля не нужно, достаточно одной перезагрузки в конце списка:
-
-1. [Zygisk Next](https://github.com/Dr-TSNG/ZygiskNext) (`1.5.3` или новее). В WebUI модуля `Enforce DenyList` должен быть выключен, иначе перестанут работать модули вроде Vector и HMA-OSS.
-2. [Nohello](https://github.com/MhmRdd/NoHello) (`v0.0.7` или новее). В паре с Zygisk Next `>= 521` модуль автоматически создает нужные флаги `/data/adb/nohello/no_clr_ptracemsg` и `/data/adb/nohello/no_dirtyro_ar`.
-3. [HMA-OSS](https://github.com/frknkrc44/HMA-OSS) (`oss-177` или новее): установите модуль `HMA-OSS-ZYGISK-*.zip` и отдельно приложение-менеджер (APK).
-4. [Tricky Store OSS](https://github.com/beakthoven/TrickyStoreOSS) (`v3.1.0` или новее, с поддержкой SDK 37).
-5. [Play Integrity Fork](https://github.com/osm0sis/PlayIntegrityFork) (`v19` или новее).
-
-После установки всех пяти модулей перезагрузите смартфон.
-
-## Шаг 4. Настройте Play Integrity и Tricky Store OSS
-
-Положите ваш действующий, не отозванный ключ в `/data/adb/tricky_store/keybox.xml`. Заранее проверьте срок действия сертификатов внутри `keybox.xml` через `openssl`, так как просроченные или отозванные Google ключи не пройдут Strong Integrity.
-
-Скопируйте шаблоны из папки `templates/` этого репозитория:
-
-- Скопируйте `templates/security_patch.txt` в `/data/adb/tricky_store/security_patch.txt` и при необходимости обновите дату так, чтобы она совпадала с вашим системным патчем безопасности (`getprop ro.build.version.security_patch`).
-- Скопируйте `templates/target.txt` в `/data/adb/tricky_store/target.txt` и добавьте в конец имена пакетов ваших банковских и платежных приложений с символом `!` на конце (например, `ru.nspk.mirpay!`). Держите в списке только те приложения, которым действительно нужна подмена аттестации.
-- Скопируйте `templates/custom.pif.prop` в `/data/adb/modules/playintegrityfix/custom.pif.prop`. Для связки Pixel 9 на Android 17 Canary с рабочим `keybox.xml` в Tricky Store OSS оставьте `spoofProvider=0`, чтобы PIF не ломал аппаратную аттестацию.
-
-Выполните Action у Play Integrity Fork (или перезагрузите телефон), затем проверьте работу Tricky Store OSS:
-
-```sh
-adb shell "su -c 'cat /data/adb/tricky_store/tee_status && grep -i tricky /proc/\$(pidof keystore2)/maps'"
-```
-
-В выводе должно быть `teeBroken=false`, а в картах памяти `keystore2` должна присутствовать библиотека `libTrickyStoreOSS.so`.
-
-## Шаг 5. Настройте HMA-OSS
-
-Настроить фильтрацию проще всего через интерфейс приложения HMA-OSS на телефоне.
-
-Через приложение:
-
-1. Откройте HMA-OSS и убедитесь, что системный сервис загружен в режиме 1 (`Mode 1`).
-2. Перейдите в управление шаблонами (Template Manage) и создайте шаблон черного списка с именем `root_hide`.
-3. Добавьте в `root_hide` root-менеджеры (`com.resukisu.resukisu`, а также `com.topjohnwu.magisk`, если остался APK), сам `org.frknkrc44.hma_oss`, терминал, блокировщики хостов и все установленные APK Xposed-модулей.
-4. Перейдите в управление приложениями (App Manage), выберите платежные приложения, банки и сервисы Google (`ru.nspk.mirpay`, `com.android.vending`, `com.google.android.gms`, `com.google.android.apps.walletnfcrel` и ваши банки), включите скрытие, выберите режим черного списка (`Blacklist`), включите исключение системных приложений (`Exclude System Apps`) и примените шаблон `root_hide`.
-
-Если вы используете шаблон `templates/hma-config.example.json` напрямую в `/data/misc/hide_my_applist_bwpjugplvntusdea/config.json`, обязательно назначьте владельца `system:system` и права `0600`, иначе `system_server` не загрузит конфиг:
-
-```sh
-adb shell "su -c 'chown system:system /data/misc/hide_my_applist_bwpjugplvntusdea/config.json && chmod 0600 /data/misc/hide_my_applist_bwpjugplvntusdea/config.json'"
-```
-
-## Шаг 6. Сбросьте кэш ошибки в Mir Pay и проверьте банки
-
-Если Mir Pay уже запускался до настройки скрытия, он сохраняет ошибку `0111000003` в локальных данных `/data/data/ru.nspk.mirpay` и продолжает показывать её даже после починки модулей.
-
-После настройки всех шагов выше очистите данные Mir Pay (при необходимости предварительно скопировав старую папку):
-
-```sh
-adb shell "su -c 'pm clear ru.nspk.mirpay'"
-```
-
-Откройте Mir Pay, выдайте запрошенное разрешение на геолокацию и проверьте переход на главный экран добавления карты без ошибки `0111000003`. Модуль `Pay Security Bypass v1.0.4` на Android 17 включать не нужно. После этого запустите и проверьте ваши банковские приложения.
-
-## Шаг 7. Установка Vector (Xposed) на Android 17 Canary (по желанию)
-
-### Почему Vector не работает без патча
-
-В прошивке Android 17 Canary (`ZP11.261016.008`) файл `/system/lib64/libbinder.so` стал симлинком на `/system/lib64/libcore_bundle.so`. Модуль `Vector canary-3119` запрашивает загруженные библиотеки у линкера через `dl_iterate_phdr`, получает реальные пути (`libcore_bundle.so`), не находит строку `"libbinder.so"` и выдает ошибку `Could not find any mappings for libbinder.so`. В результате функция `BinderCaller::GetId()` всегда возвращает `0`, и хук `IPCBridge` в `system_server` отклоняет все подключения от `VectorDaemon` с ошибкой `Vector reached system_server but its bridge never answered`.
-
-### Проверка, нужен ли патч именно вашей прошивке
-
-Выполните на телефоне команду:
+Сначала проверьте свою прошивку:
 
 ```sh
 adb shell "readlink -f /system/lib64/libbinder.so"
 ```
 
-- Если вернулось `/system/lib64/libbinder.so`, можно сразу ставить обычный [Vector](https://github.com/JingMatrix/Vector) `canary-3119`.
-- Если вернулось `/system/lib64/libcore_bundle.so`, архив перед установкой нужно пропатчить.
+Если команда вывела `/system/lib64/libbinder.so`, обычные сборки Tricky Store OSS и Vector встанут без патчей.
 
-### Патчинг и установка Vector
+На Android 17 Canary (`ZP11.261016.008`) выводится `/system/lib64/libcore_bundle.so`. Линкер в `dl_iterate_phdr` отдаёт реальный путь к бандлу вместо `libbinder.so`, и на этом спотыкаются сразу два модуля:
 
-Скачайте официальный `Vector-v2.2-3119-Release.zip` со страницы [JingMatrix/Vector Releases](https://github.com/JingMatrix/Vector/releases), запустите скрипт на ПК и установите полученный архив:
+1. `Tricky Store OSS v3.1.0` загружает `libTrickyStoreOSS.so` в `keystore2`, после чего загрузчик PLTI валится с `Failed to find libbinder.so via dl_iterate_phdr` и `Binder interception initialization failed`. Демон `TrickyStoreOSS` падает с кодом 1 сразу при старте. Подвох в том, что `/data/adb/tricky_store/tee_status` при этом продолжает показывать `teeBroken=false`, а `libTrickyStoreOSS.so` видна в `/proc/$(pidof keystore2)/maps`. Поверхностная проверка выглядит зелёной, хотя перехват аттестации полностью мёртв.
+2. `Vector canary-3119` ловит ту же ошибку в `libzygisk.so` (`Could not find any mappings for libbinder.so`), оставляет ID вызывающего равным `0`, и мост в `system_server` сбрасывает вызовы (`Vector reached system_server but its bridge never answered`).
+
+Оба скрипта в папке `scripts/` находят единственную отдельную 12-байтовую строку `"libbinder.so"` внутри `.rodata` и меняют её на `"re_bundle.so"` (те же 12 байт, совпадает только с `libcore_bundle.so` среди бандлов Android 17). Секцию `.dynstr` (`DT_NEEDED`) скрипты не трогают и проверяют, что она не изменилась ни на байт.
+
+В ветке `main` репозитория `beakthoven/TrickyStoreOSS` поддержку `libcore_bundle.so` уже добавили, просто после тега `v3.1.0` новый релиз ещё не выходил. На свежих сборках Tricky Store OSS и Vector сначала прогоняйте `--dry-run`: если библиотека уже знает про `libcore_bundle.so`, скрипт сам остановится и напишет, что патч не нужен.
+
+## Резервная копия и выход из бутлупа
+
+Перед заменой модулей скопируйте `/data/adb`:
+
+```sh
+adb shell "su -c 'mkdir -p /data/adb/backup && cp -a /data/adb/modules /data/adb/tricky_store /data/adb/lspd /data/adb/backup/'"
+```
+
+Если после установки телефон уйдёт в бутлуп, зажмите кнопку уменьшения громкости на старте. KernelSU / ReSukiSU загрузится в безопасном режиме с отключёнными модулями. Если ADB уже подхватился, проблемный модуль можно выключить точечно: `/data/adb/ksud module disable <id_модуля>`.
+
+## Настройка ReSukiSU и ловушка `.allowlist`
+
+Nohello сам прячет маунты в Zygisk и конфликтует с ядерным `kernel_umount`. Выключите `kernel_umount`, а `selinux_hide` оставьте включённым:
+
+```sh
+adb shell "su -c '/data/adb/ksud feature set kernel_umount 0 && /data/adb/ksud feature set selinux_hide 1 && /data/adb/ksud feature save'"
+```
+
+Проверьте `/data/adb/ksud feature list`: включены `su_compat`, `selinux_hide`, `sulog` и `adb_root`, напротив `kernel_umount` стоит `[DISABLED]`.
+
+Отдельный нюанс с профилями приложений (App Profiles) в ReSukiSU: не создавайте для банков, платёжек или мессенджеров кастомный профиль без root с выключенным `umount`. Это добавляет запись `umount_modules=0` в `/data/adb/ksu/.allowlist` и ломает размонтирование для этого пакета. Приложения, от которых прячете root, должны оставаться на стандартном профиле без прав root.
+
+## Основные модули
+
+Если `readlink -f /system/lib64/libbinder.so` показал `/system/lib64/libcore_bundle.so`, сначала пропатчите официальный архив `Tricky-Store-OSS-v3.1.0` на ПК:
+
+```sh
+python scripts/patch_trickystore_a17.py Tricky-Store-OSS-v3.1.0-172-41383f5-Release.zip -o Tricky-Store-OSS-v3.1.0-a17-patched.zip
+```
+
+Если стоковый `v3.1.0` уже стоит на телефоне, этому же скрипту можно скормить вытянутый `/data/adb/modules/tricky_store/libTrickyStoreOSS.so` (только сначала сохраните оригинал).
+
+Установите все пять модулей в ReSukiSU подряд и перезагрузите телефон один раз:
+
+1. [Zygisk Next](https://github.com/Dr-TSNG/ZygiskNext) (`1.5.3` или новее). `Enforce DenyList` в WebUI должен быть выключен, иначе отвалятся Nohello, HMA-OSS и Vector.
+2. [Nohello](https://github.com/MhmRdd/NoHello) (`v0.0.7` или новее). С Zygisk Next `>= 521` сам создаёт `/data/adb/nohello/no_clr_ptracemsg` и `/data/adb/nohello/no_dirtyro_ar`.
+3. [HMA-OSS](https://github.com/frknkrc44/HMA-OSS) (`oss-177` или новее): прошейте `HMA-OSS-ZYGISK-*.zip` и поставьте APK менеджера.
+4. [Tricky Store OSS](https://github.com/beakthoven/TrickyStoreOSS) (пропатченный `v3.1.0` или более новый релиз с поддержкой `libcore_bundle.so`).
+5. [Play Integrity Fork](https://github.com/osm0sis/PlayIntegrityFork) (`v19` или новее).
+
+## Конфиги Tricky Store OSS и Play Integrity Fork
+
+Положите свой действующий, не отозванный ключ в `/data/adb/tricky_store/keybox.xml`. Срок действия сертификатов лучше проверить через `openssl` сразу, чтобы не искать поломку в модулях из-за мёртвого ключа.
+
+Скопируйте шаблоны из `templates/`:
+
+- `templates/security_patch.txt` -> `/data/adb/tricky_store/security_patch.txt`. Дата должна совпадать с `getprop ro.build.version.security_patch`.
+- `templates/target.txt` -> `/data/adb/tricky_store/target.txt`. Допишите в конец нужные банки, платёжки или мессенджеры с `!` на конце (например `ru.nspk.mirpay!` или `com.whatsapp!`). Весь список установленных программ туда пихать не нужно.
+- `templates/custom.pif.prop` -> `/data/adb/modules/playintegrityfix/custom.pif.prop`. При рабочем `keybox.xml` оставьте `spoofProvider=0`, чтобы PIF не перебивал аппаратную аттестацию.
+
+Нажмите Action у Play Integrity Fork (или перезагрузитесь).
+
+## HMA-OSS
+
+Проще настроить прямо в приложении на телефоне:
+
+1. Откройте HMA-OSS и убедитесь, что системный сервис загружен в режиме 1 (`Mode 1`).
+2. В Template Manage создайте шаблон чёрного списка с именем `root_hide`.
+3. Добавьте в `root_hide` root-менеджеры (`com.resukisu.resukisu`, а также `com.topjohnwu.magisk`, если остался), сам `org.frknkrc44.hma_oss`, терминал, блокировщики хостов и все APK Xposed-модулей.
+4. В App Manage выберите `ru.nspk.mirpay`, `com.android.vending`, `com.google.android.gms`, `com.google.android.apps.walletnfcrel`, ваши банки и нужные мессенджеры. Включите скрытие, выберите `Blacklist`, включите `Exclude System Apps` и примените шаблон `root_hide`.
+
+Если подсовывать отредактированный `templates/hma-config.example.json` напрямую в `/data/misc/hide_my_applist_bwpjugplvntusdea/config.json`, поправьте владельца и права, иначе `system_server` конфиг не прочитает:
+
+```sh
+adb shell "su -c 'chown system:system /data/misc/hide_my_applist_bwpjugplvntusdea/config.json && chmod 0600 /data/misc/hide_my_applist_bwpjugplvntusdea/config.json'"
+```
+
+## Mir Pay, банки и WhatsApp
+
+Если Mir Pay уже открывался до настройки скрытия, он запоминает ошибку `0111000003` в `/data/data/ru.nspk.mirpay` и продолжает её показывать даже после починки модулей. Сбросьте данные приложения один раз:
+
+```sh
+adb shell "su -c 'pm clear ru.nspk.mirpay'"
+```
+
+Запустите Mir Pay, выдайте доступ к геолокации и проверьте, что открылся экран добавления карты. `Pay Security Bypass v1.0.4` на Android 17 не ставьте. Антифрод в банках обновляется без предупреждения, а сам вход в приложение ещё не гарантирует токенизацию карты и оплату по NFC на терминале, так что проверяйте оплату на своём телефоне.
+
+По WhatsApp и похожим приложениям со связкой Play Integrity и серверных проверок: сначала убедитесь, что проходит `STRONG`, добавьте `com.whatsapp!` в `target.txt` и скройте root-приложения в HMA-OSS. Если до этого было много неудачных попыток входа со сломанной аттестацией или через публичные прокси, серверы WhatsApp могут временно держать блокировку уже на своей стороне даже при зелёном Play Integrity.
+
+## Vector (Xposed), по желанию
+
+Скачайте `Vector-v2.2-3119-Release.zip` со страницы [JingMatrix/Vector Releases](https://github.com/JingMatrix/Vector/releases). Если `readlink -f /system/lib64/libbinder.so` ведёт на `libcore_bundle.so`, пропатчите архив до установки:
 
 ```sh
 python scripts/patch_vector_a17.py Vector-v2.2-3119-Release.zip -o Vector-v2.2-3119-a17-patched.zip
 ```
 
-При желании сначала запустите скрипт с флагом `--dry-run`, чтобы проверить найденное смещение и хэши без создания файла. Скрипт меняет ровно 12 байт имени библиотеки (`"libbinder.so"` на `"re_bundle.so"`) в `lib/arm64-v8a/libzygisk.so` и обновляет `lib/arm64-v8a/libzygisk.so.sha256` внутри ZIP, чтобы установщик `customize.sh` прошел проверку контрольной суммы.
+Скрипт меняет строку в `.rodata` внутри `lib/arm64-v8a/libzygisk.so` и пересчитывает `lib/arm64-v8a/libzygisk.so.sha256` в архиве, чтобы установщик `customize.sh` принял хэш. Прошейте полученный ZIP в ReSukiSU и перезагрузитесь.
 
-Установите `Vector-v2.2-3119-a17-patched.zip` в ReSukiSU и перезагрузите смартфон. Интерфейс Vector открывается через системное уведомление, кнопку Action модуля в ReSukiSU или код `*#*#832867#*#*` в звонилке. В настройках области (Scope) каждого Xposed-модуля отметьте только нужные приложения (лаунчер, плеер и т.п.), а сами APK Xposed-модулей обязательно добавьте в шаблон `root_hide` внутри HMA-OSS.
+Менеджер Vector открывается из уведомления, через кнопку Action в ReSukiSU или кодом `*#*#832867#*#*` в звонилке. В Scope каждого Xposed-модуля отмечайте только те приложения, которым он реально нужен, а APK самих модулей добавляйте в `root_hide` внутри HMA-OSS. Перед обновлением на более свежие сборки Vector прогоняйте новый ZIP через `--dry-run`.
 
-Важно про обновления: не устанавливайте новые релизы Vector поверх пропатченной версии, пока разработчики `JingMatrix/Vector` не добавят поддержку `libcore_bundle.so` в исходный код. Перед обновлением всегда проверяйте новый ZIP через `--dry-run`.
+## Как проверить, что всё реально работает
 
-## Финальная проверка
-
-После перезагрузки выполните команды проверки:
+После перезагрузки прогоните по ADB:
 
 ```sh
+adb shell "su -c 'ps -A | grep -i tricky'"
+adb shell "su -c 'logcat -d TrickyStoreOSS:W *:S'"
+adb shell "su -c 'cat /data/adb/tricky_store/tee_status'"
 adb shell "su -c '/data/adb/modules/zygisksu/bin/zygiskd status'"
 adb shell "su -c '/data/adb/ksud module list'"
-adb shell "su -c '/data/adb/ksud feature list'"
-adb shell "su -c 'cat /data/adb/tricky_store/tee_status'"
 adb shell "su -c '/data/adb/modules/zygisk_vector/cli status'"
 ```
 
-На что смотреть в выводе:
+Что должно быть в выводе:
 
+- `ps -A | grep -i tricky` показывает живой процесс `TrickyStoreOSS`. Пустой вывод означает, что демон упал при загрузке.
+- `logcat -d TrickyStoreOSS:W *:S` пустой (нет ни `Failed to find libbinder.so`, ни `CannotAttestIds`).
+- `tee_status` выводит `teeBroken=false`.
 - `zygiskd status` показывает `inject_state:1`, `modules_with_issue:0` и `enforce_denylist:0`.
-- В описании модуля `Nohello` растет счетчик размонтирований.
-- В описании `HMA-OSS Zygisk` указано `[System service loaded]`, а в `/data/misc/hide_my_applist_bwpjugplvntusdea/filter_count.json` видны отфильтрованные запросы для Google Play, GMS и банков.
-- `tee_status` содержит `teeBroken=false`.
-- `vector-cli status` выводит версию `2.2` (`3119`), а в `/data/adb/lspd/log/verbose_*.log` есть строка `Successfully injected Vector IPC binder for applications.` без перезапусков `system_server`.
+- В `ksud module list` у Nohello растёт счётчик размонтирований, а у HMA-OSS Zygisk написано `[System service loaded]`.
+- `vector/cli status` выводит `Framework Version: 2.2` (`3119`), в `/data/adb/lspd/log/verbose_*.log` есть `Successfully injected Vector IPC binder for applications.`, а `system_server` не перезапускается.
+
+В конце проверьте реальный ответ Google Play Integrity: Google Play -> Настройки -> О приложении -> 7 раз нажать на версию Play Store -> Общие -> Для разработчиков -> Проверка целостности. С живым `keybox.xml` и пропатченным Tricky Store OSS придёт:
+
+```text
+Labels: [MEETS_BASIC_INTEGRITY, MEETS_DEVICE_INTEGRITY, MEETS_STRONG_INTEGRITY]
+```
